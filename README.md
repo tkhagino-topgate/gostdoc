@@ -1,7 +1,7 @@
 # gostdoc
 gostdoc
 
-thanks for [jwg](https://github.com/favclip/jwg)
+thanks to [jwg](https://github.com/favclip/jwg)
 
 ## Description
 analysis and documentation tool for golang's structure
@@ -10,7 +10,7 @@ analysis and documentation tool for golang's structure
 
 ## Installation
 ```
-$ go get github.com/favclip/jwg/cmd/jwg
+$ go get github.com/tkhagino-topgate/gostdoc/cmd/gostdoc
 $ gostdoc
 Usage of gostdoc:
 	gostdoc [flags] [directory]
