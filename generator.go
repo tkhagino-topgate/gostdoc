@@ -1,6 +1,7 @@
 package gostdoc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -32,7 +33,7 @@ type OutputFormatType string
 const (
 	OutputFormatTypeTsv      OutputFormatType = "tsv"
 	OutputFormatTypeTsvShort OutputFormatType = "tsvshort"
-	//OutputFormatTypeJSON OutputFormatType = "json"
+	OutputFormatTypeJSON     OutputFormatType = "json"
 )
 
 // BuildSource represents source code of assembling..
@@ -40,7 +41,7 @@ type BuildSource struct {
 	g         *genbase.Generator
 	pkg       *genbase.PackageInfo
 	typeInfos genbase.TypeInfos
-	Structs   []*BuildStruct
+	Structs   []*BuildStruct `json:"structs"`
 }
 
 // BuildStruct represents struct of assembling..
@@ -48,7 +49,19 @@ type BuildStruct struct {
 	parent   *BuildSource
 	typeInfo *genbase.TypeInfo
 
-	Fields []*BuildField
+	Fields []*BuildField `json:"fields"`
+}
+
+// MarshalJSON returns b as the JSON encoding of b
+func (st *BuildStruct) MarshalJSON() ([]byte, error) {
+	type Alias BuildStruct
+	return json.Marshal(&struct {
+		Name string `json:"name"`
+		*Alias
+	}{
+		Name:  st.Name(),
+		Alias: (*Alias)(st),
+	})
 }
 
 // BuildField represents field of BuildStruct.
@@ -56,16 +69,41 @@ type BuildField struct {
 	parent    *BuildStruct
 	fieldInfo *genbase.FieldInfo
 
-	Name  string
-	Embed bool
-	Tag   []*BuildTag
+	Name  string      `json:"name"`
+	Embed bool        `json:"embed"`
+	Tags  []*BuildTag `json:"tags,omitempty"`
+}
+
+// CommentText returns a comment of field
+func (f *BuildField) CommentText() string {
+	return strings.TrimRight(f.fieldInfo.Comment.Text(), "\n")
+}
+
+// MarshalJSON returns b as the JSON encoding of b
+func (f *BuildField) MarshalJSON() ([]byte, error) {
+	type Alias BuildField
+
+	typeName, err := ExprToBaseTypeName(f.fieldInfo.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(&struct {
+		Type    string `json:"type"`
+		Comment string `json:"comment"`
+		*Alias
+	}{
+		Type:    typeName,
+		Comment: f.CommentText(),
+		Alias:   (*Alias)(f),
+	})
 }
 
 // BuildTag represents tag of BuildField.
 type BuildTag struct {
 	field *BuildField
-	Name  string
-	Value string
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // Parse construct *BuildSource from package & type information.
@@ -148,7 +186,7 @@ func (b *BuildSource) parseField(st *BuildStruct, typeInfo *genbase.TypeInfo, fi
 	}
 	st.Fields = append(st.Fields, field)
 
-	field.Tag = make([]*BuildTag, 0, 10)
+	field.Tags = make([]*BuildTag, 0, 10)
 
 	// tags
 	if fieldInfo.Tag == nil {
@@ -166,7 +204,7 @@ func (b *BuildSource) parseField(st *BuildStruct, typeInfo *genbase.TypeInfo, fi
 			Value: structTag.Get(key),
 		}
 
-		field.Tag = append(field.Tag, tag)
+		field.Tags = append(field.Tags, tag)
 	}
 
 	return nil
@@ -174,6 +212,10 @@ func (b *BuildSource) parseField(st *BuildStruct, typeInfo *genbase.TypeInfo, fi
 
 // Emit generate wrapper code.
 func (b *BuildSource) Emit(opts *OutputOptions) ([]byte, error) {
+	if opts.Format == OutputFormatTypeJSON {
+		return json.MarshalIndent(b, "", "  ")
+	}
+
 	for _, st := range b.Structs {
 		err := st.emit(b.g, opts)
 		if err != nil {
@@ -191,15 +233,15 @@ func (st *BuildStruct) emit(g *genbase.Generator, opts *OutputOptions) error {
 			return err
 		}
 
-		tags := make([]string, len(field.Tag))
-		for i, tag := range field.Tag {
+		tags := make([]string, len(field.Tags))
+		for i, tag := range field.Tags {
 			tags[i] = tag.TagString()
 		}
 
 		switch opts.Format {
 		case OutputFormatTypeTsv:
 			g.Printf("%s\t%s\t%s\t%s\t%s\n",
-				st.Name(), typeName, field.Name, strings.Join(tags, " "), strings.TrimRight(field.fieldInfo.Comment.Text(), "\n"))
+				st.Name(), typeName, field.Name, strings.Join(tags, " "), field.CommentText())
 		case OutputFormatTypeTsvShort:
 			g.Printf("%s\t%s\t%s\n", st.Name(), typeName, field.Name)
 		//case OutputFormatTypeJSON:
