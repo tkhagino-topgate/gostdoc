@@ -1,6 +1,8 @@
 # gostdoc
 gostdoc
 
+thanks for [jwg](https://github.com/favclip/jwg)
+
 ## Description
 analysis and documentation tool for golang's structure
 
