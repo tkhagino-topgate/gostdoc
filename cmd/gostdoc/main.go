@@ -46,7 +46,7 @@ func main() {
 	}
 
 	outputFormat := gostdoc.OutputFormatType(*format)
-	if outputFormat != gostdoc.OutputFormatTypeTsv && outputFormat != gostdoc.OutputFormatTypeTsvShort {
+	if outputFormat != gostdoc.OutputFormatTypeTsv && outputFormat != gostdoc.OutputFormatTypeTsvShort && outputFormat != gostdoc.OutputFormatTypeJSON {
 		Usage()
 	}
 
